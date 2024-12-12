@@ -1,56 +1,119 @@
 import { GameStatuses } from "../../GAME_STATUSES.js";
 import { SamuraiNumberUtility } from "../../samurai-number-utility.js";
 
-export class Game {
-  #settings = {
-    gridSize: {
-      columnsCount: 4,
-      rowsCount: 4,
-    },
-    googleJumpInterval: 1000,
-    playersJumpInterval: 1,
-  };
-  #status = GameStatuses.PENDING;
-
-  #googlePosition = null;
-  #players1 = null;
-  #players2 = null;
-
-  #isCellFree(x, y) {
-    return (
-      (x !== this.#googlePosition?.x || y !== this.#googlePosition?.y) &&
-      (x !== this.#players1.x || y !== this.#players1.y) &&
-      (x !== this.#players2.x || y !== this.#players2.y)
-    );
+class Position {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
   }
-  /**
-   * @type SamuraiNumberUtility // JSDoc
-   */
+
+  equals(other) {
+    return this.x === other.x && this.y === other.y;
+  }
+
+  static equals(pos1, pos2) {
+    return pos1.x === pos2.x && pos1.y === pos2.y;
+  }
+}
+
+class Player {
+  constructor(id, position) {
+    this.id = id;
+    this.position = position;
+  }
+}
+
+class Google {
+  constructor(position) {
+    this.position = position;
+  }
+}
+
+class GridSettings {
+  constructor(columnsCount, rowsCount) {
+    this.columnsCount = columnsCount;
+    this.rowsCount = rowsCount;
+  }
+}
+
+class GoogleSettings {
+  constructor(jumpInterval) {
+    this.jumpInterval = jumpInterval;
+  }
+}
+
+class Settings {
+  constructor(gridSettings, googleSettings) {
+    this.gridSettings = gridSettings;
+    this.googleSettings = googleSettings;
+  }
+}
+
+export class Game {
+  #settings;
+  #status = GameStatuses.PENDING;
+  #google;
+  #player1;
+  #player2;
+  #googleJumpInterval = null;
   #numberUtility;
 
-  constructor() {
-    this.#numberUtility = new SamuraiNumberUtility();
-    let player1Position, player2Position;
+  constructor(numberUtility) {
+    this.#numberUtility = numberUtility || new SamuraiNumberUtility();
+
+    const gridSettings = new GridSettings(4, 4);
+    const googleSettings = new GoogleSettings(1000);
+    this.#settings = new Settings(gridSettings, googleSettings);
+
+    this.#createUnits();
+  }
+
+  #createUnits() {
+    const player1Position = this.#getRandomPosition([]);
+    this.#player1 = new Player(1, player1Position);
+
+    const player2Position = this.#getRandomPosition([player1Position]);
+    this.#player2 = new Player(2, player2Position);
+
+    const googlePosition = this.#getRandomPosition([
+      player1Position,
+      player2Position,
+    ]);
+    this.#google = new Google(googlePosition);
+  }
+
+  #getRandomPosition(occupiedPositions) {
+    let position;
     do {
-      player1Position = this.#getRandomPosition();
-      player2Position = this.#getRandomPosition();
+      position = new Position(
+        this.#numberUtility.getRandomInteger(
+          0,
+          this.#settings.gridSettings.columnsCount - 1
+        ),
+        this.#numberUtility.getRandomInteger(
+          0,
+          this.#settings.gridSettings.rowsCount - 1
+        )
+      );
     } while (
-      (player1Position.x === this.#googlePosition?.x &&
-        player1Position.y === this.#googlePosition?.y) ||
-      (player2Position.x === this.#googlePosition?.x &&
-        player2Position.y === this.#googlePosition?.y) ||
-      (player1Position.x === player2Position.x &&
-        player1Position.y === player2Position.y)
+      occupiedPositions.some((occupied) => Position.equals(occupied, position))
     );
-    this.#players1 = player1Position;
-    this.#players2 = player2Position;
+    return position;
+  }
+
+  #isCellFree(x, y) {
+    return !(
+      Position.equals(this.#google.position, new Position(x, y)) ||
+      Position.equals(this.#player1.position, new Position(x, y)) ||
+      Position.equals(this.#player2.position, new Position(x, y))
+    );
   }
 
   set googleJumpInterval(value) {
     if (!Number.isInteger(value) || value <= 0) {
       throw new Error("Google jump interval must be a positive integer");
     }
-    this.#settings.googleJumpInterval = value;
+    this.#settings.googleSettings.jumpInterval = value;
   }
 
   get status() {
@@ -58,52 +121,50 @@ export class Game {
   }
 
   get googlePosition() {
-    return this.#googlePosition;
+    return this.#google.position;
   }
 
   get player1Position() {
-    return this.#players1;
+    return this.#player1.position;
   }
+
   get player2Position() {
-    return this.#players2;
+    return this.#player2.position;
   }
 
   get gridSize() {
-    return this.#settings.gridSize;
+    return this.#settings.gridSettings;
   }
 
   start() {
     this.#status = GameStatuses.IN_PROGRESS;
     this.#makeGoogleJump();
-    setInterval(() => {
+
+    this.#googleJumpInterval = setInterval(() => {
       this.#makeGoogleJump();
-    }, this.#settings.googleJumpInterval);
+    }, this.#settings.googleSettings.jumpInterval);
   }
+
   #makeGoogleJump() {
-    const newPosition = {
-      x: this.#numberUtility.getRandomInteger(
-        0,
-        this.#settings.gridSize.columnsCount
-      ),
-      y: this.#numberUtility.getRandomInteger(
-        0,
-        this.#settings.gridSize.rowsCount
-      ),
-    };
-    while (!this.#isCellFree(newPosition.x, newPosition.y));
-    
-    this.#googlePosition = newPosition;
+    let newPosition;
+    do {
+      newPosition = new Position(
+        this.#numberUtility.getRandomInteger(
+          0,
+          this.#settings.gridSettings.columnsCount - 1
+        ),
+        this.#numberUtility.getRandomInteger(
+          0,
+          this.#settings.gridSettings.rowsCount - 1
+        )
+      );
+    } while (!this.#isCellFree(newPosition.x, newPosition.y));
+
+    this.#google.position = newPosition;
   }
-  #getRandomPosition() {
-    return {
-      x: this.#numberUtility.getRandomInteger(
-        0,
-        this.#settings.gridSize.columnsCount
-      ),
-      y: this.#numberUtility.getRandomInteger(
-        0,
-        this.#settings.gridSize.rowsCount
-      ),
-    };
+
+  stop() {
+    clearInterval(this.#googleJumpInterval);
+    this.#status = GameStatuses.COMPLETED;
   }
 }

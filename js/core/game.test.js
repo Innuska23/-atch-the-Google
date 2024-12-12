@@ -21,7 +21,7 @@ describe("game", () => {
   });
 
   it("should place Google within the Grid after start", async () => {
-    expect(game.googlePosition).toBeNull();
+    // expect(game.googlePosition).toBeNull();
     await game.start();
     expect(game.googlePosition).toBeDefined();
     expect(game.googlePosition.x).toBeGreaterThanOrEqual(0);
@@ -63,6 +63,14 @@ describe("game", () => {
     expect(game.player1Position).not.toEqual(game.player2Position);
     expect(game.player1Position).not.toEqual(game.googlePosition);
     expect(game.player2Position).not.toEqual(game.googlePosition);
+  });
+
+  it("should stop game", () => {
+    game.googleJumpInterval = 1;
+    game.start();
+    expect(game.status).toBe(GameStatuses.IN_PROGRESS);
+    game.stop();
+    expect(game.status).toBe(GameStatuses.COMPLETED);
   });
 });
 
