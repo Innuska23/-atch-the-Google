@@ -136,6 +136,10 @@ export class Game {
     return this.#settings.gridSettings;
   }
 
+  set gridSize(value) {
+    this.#settings.gridSettings = value;
+  }
+
   start() {
     this.#status = GameStatuses.IN_PROGRESS;
     this.#makeGoogleJump();

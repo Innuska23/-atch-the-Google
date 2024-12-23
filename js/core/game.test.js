@@ -32,7 +32,7 @@ describe("game", () => {
 
   it("should move Google to a new position within the Grid after jump", async () => {
     game.googleJumpInterval = 1;
-    await await game.start();
+    await game.start();
 
     for (let i = 0; i < 10; i++) {
       const prevGooglePosition = game.googlePosition;
@@ -71,6 +71,98 @@ describe("game", () => {
     expect(game.status).toBe(GameStatuses.IN_PROGRESS);
     game.stop();
     expect(game.status).toBe(GameStatuses.COMPLETED);
+  });
+
+  it("player should be in the Grid after start", async () => {
+    for (let i = 0; i < 100; i++) {
+      const game = new Game(numberUtil);
+      await game.start();
+      expect(game.player1Position.x).toBeLessThan(game.gridSize.columnsCount);
+      expect(game.player1Position.x).toBeGreaterThanOrEqual(0);
+      expect(game.player1Position.y).toBeLessThan(game.gridSize.rowsCount);
+      expect(game.player1Position.y).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("player should be move in correct directions", async () => {
+    //const numberUtil = new ShogunNumberUtility()
+
+    const fakeNumberUtility = {
+      *numberGenerator() {
+        yield 2;
+        yield 2;
+        yield 1;
+        yield 1;
+        yield 0;
+        yield 0;
+        while (true) {
+          yield 0;
+        }
+      },
+      iterator: null,
+      getRandomInteger(from, to) {
+        if (!this.iterator) {
+          this.iterator = this.numberGenerator();
+        }
+        return this.iterator.next().value;
+      },
+    };
+
+    const game = new Game(fakeNumberUtility);
+    game.gridSize = { columnsCount: 3, rowsCount: 3 };
+    game.start();
+
+    // [  ][  ][  ]
+    // [  ][  ][  ]
+    // [  ][  ][p1]
+    expect(game.player1Position).toEqual({ x: 2, y: 2 });
+
+    game.movePlayer(1, "RIGHT");
+    expect(game.player1Position).toEqual({ x: 2, y: 2 });
+    game.movePlayer(1, "DOWN");
+    expect(game.player1Position).toEqual({ x: 2, y: 2 });
+
+    game.movePlayer(1, "UP");
+    // [  ][  ][  ]
+    // [  ][  ][p1]
+    // [  ][  ][  ]
+    expect(game.player1Position).toEqual({ x: 2, y: 1 });
+
+    game.movePlayer(1, "UP");
+    // [  ][  ][p1]
+    // [  ][  ][  ]
+    // [  ][  ][  ]
+    expect(game.player1Position).toEqual({ x: 2, y: 0 });
+
+    game.movePlayer(1, "LEFT");
+    // [  ][p1][  ]
+    // [  ][  ][  ]
+    // [  ][  ][  ]
+    expect(game.player1Position).toEqual({ x: 1, y: 0 });
+
+    game.movePlayer(1, "UP");
+    // [  ][p1][  ]
+    // [  ][  ][  ]
+    // [  ][  ][  ]
+    expect(game.player1Position).toEqual({ x: 1, y: 0 });
+
+    game.movePlayer(1, "LEFT");
+    // [p1][  ][  ]
+    // [  ][  ][  ]
+    // [  ][  ][  ]
+    expect(game.player1Position).toEqual({ x: 0, y: 0 });
+
+    game.movePlayer(1, "DOWN");
+    // [  ][  ][  ]
+    // [p1][  ][  ]
+    // [  ][  ][  ]
+    expect(game.player1Position).toEqual({ x: 0, y: 1 });
+
+    game.movePlayer(1, "RIGHT");
+    // [  ][  ][  ]
+    // [  ][p1][  ]
+    // [  ][  ][  ]
+    expect(game.player1Position).toEqual({ x: 1, y: 1 });
   });
 });
 
