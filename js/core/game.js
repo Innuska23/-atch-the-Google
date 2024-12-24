@@ -1,14 +1,25 @@
 import { GameStatuses } from "../../GAME_STATUSES.js";
 import { SamuraiNumberUtility } from "../../samurai-number-utility.js";
 
+// Value Objects
 class Position {
+  #x;
+  #y;
+
   constructor(x, y) {
-    this.x = x;
-    this.y = y;
+    this.#x = x;
+    this.#y = y;
+  }
+
+  get x() {
+    return this.#x;
+  }
+  get y() {
+    return this.#y;
   }
 
   equals(other) {
-    return this.x === other.x && this.y === other.y;
+    return this.#x === other.x && this.#y === other.y;
   }
 
   static equals(pos1, pos2) {
@@ -16,159 +27,269 @@ class Position {
   }
 }
 
-class Player {
-  constructor(id, position) {
-    this.id = id;
-    this.position = position;
-  }
-}
-
-class Google {
-  constructor(position) {
-    this.position = position;
-  }
-}
-
 class GridSettings {
-  constructor(columnsCount, rowsCount) {
-    this.columnsCount = columnsCount;
-    this.rowsCount = rowsCount;
+  #columnsCount;
+  #rowsCount;
+  #samuraiNumberUtility;
+
+  constructor(columnsCount = 4, rowsCount = 4, samuraiNumberUtility) {
+    this.validate(columnsCount, rowsCount);
+    this.#columnsCount = columnsCount;
+    this.#rowsCount = rowsCount;
+    this.#samuraiNumberUtility = samuraiNumberUtility;
+  }
+
+  validate(columns, rows) {
+    if (!Number.isInteger(columns) || columns <= 0)
+      throw new Error("Columns must be positive integer");
+    if (!Number.isInteger(rows) || rows <= 0)
+      throw new Error("Rows must be positive integer");
+  }
+
+  getRandomPosition() {
+    return new Position(
+      this.#samuraiNumberUtility.getRandomInteger(0, this.#columnsCount),
+      this.#samuraiNumberUtility.getRandomInteger(0, this.#rowsCount)
+    );
+  }
+
+  get columnsCount() {
+    return this.#columnsCount;
+  }
+  get rowsCount() {
+    return this.#rowsCount;
   }
 }
 
 class GoogleSettings {
-  constructor(jumpInterval) {
-    this.jumpInterval = jumpInterval;
+  #jumpInterval;
+
+  constructor(jumpInterval = 1000) {
+    this.validate(jumpInterval);
+    this.#jumpInterval = jumpInterval;
+  }
+
+  validate(interval) {
+    if (!Number.isInteger(interval) || interval <= 0) {
+      throw new Error("Jump interval must be positive integer");
+    }
+  }
+
+  get jumpInterval() {
+    return this.#jumpInterval;
   }
 }
 
-class Settings {
-  constructor(gridSettings, googleSettings) {
-    this.gridSettings = gridSettings;
-    this.googleSettings = googleSettings;
+// Entities
+class Player {
+  #id;
+  #position;
+
+  constructor(id, position) {
+    this.#id = id;
+    this.#position = position;
+  }
+
+  get id() {
+    return this.#id;
+  }
+  get position() {
+    return this.#position;
+  }
+  set position(value) {
+    this.#position = value;
+  }
+}
+
+class Google {
+  #position;
+
+  constructor(position) {
+    this.#position = position;
+  }
+
+  get position() {
+    return this.#position;
+  }
+  set position(value) {
+    this.#position = value;
+  }
+}
+
+// Grid Service
+class GridManager {
+  #settings;
+  #samuraiNumberUtility;
+
+  constructor(settings, samuraiNumberUtility) {
+    this.#settings = settings;
+    this.#samuraiNumberUtility = samuraiNumberUtility;
+  }
+
+  isInRange(position) {
+    return (
+      position.x >= 0 &&
+      position.x < this.#settings.columnsCount &&
+      position.y >= 0 &&
+      position.y < this.#settings.rowsCount
+    );
+  }
+
+  isCellFree(position, units) {
+    return !units.some((unit) => Position.equals(unit.position, position));
+  }
+
+  getRandomFreePosition(occupiedPositions) {
+    let position;
+    do {
+      position = this.#settings.getRandomPosition();
+    } while (
+      !this.isCellFree(
+        position,
+        occupiedPositions.map((p) => ({ position: p }))
+      )
+    );
+    return position;
   }
 }
 
 export class Game {
+  #gridManager;
   #settings;
   #status = GameStatuses.PENDING;
   #google;
   #player1;
   #player2;
   #googleJumpInterval = null;
-  #numberUtility;
+  #winner = null;
+  #samuraiNumberUtility;
 
-  constructor(numberUtility) {
-    this.#numberUtility = numberUtility || new SamuraiNumberUtility();
-
-    const gridSettings = new GridSettings(4, 4);
-    const googleSettings = new GoogleSettings(1000);
-    this.#settings = new Settings(gridSettings, googleSettings);
-
+  constructor() {
+    this.#samuraiNumberUtility = new SamuraiNumberUtility();
+    this.#settings = {
+      grid: new GridSettings(4, 4, this.#samuraiNumberUtility),
+      google: new GoogleSettings(),
+    };
+    this.#gridManager = new GridManager(
+      this.#settings.grid,
+      this.#samuraiNumberUtility
+    );
     this.#createUnits();
   }
 
   #createUnits() {
-    const player1Position = this.#getRandomPosition([]);
-    this.#player1 = new Player(1, player1Position);
-
-    const player2Position = this.#getRandomPosition([player1Position]);
-    this.#player2 = new Player(2, player2Position);
-
-    const googlePosition = this.#getRandomPosition([
+    const player1Position = this.#gridManager.getRandomFreePosition([]);
+    const player2Position = this.#gridManager.getRandomFreePosition([
+      player1Position,
+    ]);
+    const googlePosition = this.#gridManager.getRandomFreePosition([
       player1Position,
       player2Position,
     ]);
+
+    this.#player1 = new Player(1, player1Position);
+    this.#player2 = new Player(2, player2Position);
     this.#google = new Google(googlePosition);
   }
 
-  #getRandomPosition(occupiedPositions) {
-    let position;
-    do {
-      position = new Position(
-        this.#numberUtility.getRandomInteger(
-          0,
-          this.#settings.gridSettings.columnsCount - 1
-        ),
-        this.#numberUtility.getRandomInteger(
-          0,
-          this.#settings.gridSettings.rowsCount - 1
-        )
-      );
-    } while (
-      occupiedPositions.some((occupied) => Position.equals(occupied, position))
-    );
-    return position;
-  }
+  movePlayer(playerNumber, moveDirection) {
+    if (this.#status !== GameStatuses.IN_PROGRESS) return;
 
-  #isCellFree(x, y) {
-    return !(
-      Position.equals(this.#google.position, new Position(x, y)) ||
-      Position.equals(this.#player1.position, new Position(x, y)) ||
-      Position.equals(this.#player2.position, new Position(x, y))
-    );
-  }
+    const player = playerNumber === 1 ? this.#player1 : this.#player2;
+    const otherPlayer = playerNumber === 1 ? this.#player2 : this.#player1;
+    let newPosition;
 
-  set googleJumpInterval(value) {
-    if (!Number.isInteger(value) || value <= 0) {
-      throw new Error("Google jump interval must be a positive integer");
+    switch (moveDirection) {
+      case MoveDirection.UP:
+        newPosition = new Position(player.position.x, player.position.y - 1);
+        break;
+      case MoveDirection.DOWN:
+        newPosition = new Position(player.position.x, player.position.y + 1);
+        break;
+      case MoveDirection.LEFT:
+        newPosition = new Position(player.position.x - 1, player.position.y);
+        break;
+      case MoveDirection.RIGHT:
+        newPosition = new Position(player.position.x + 1, player.position.y);
+        break;
+      default:
+        return;
     }
-    this.#settings.googleSettings.jumpInterval = value;
-  }
 
-  get status() {
-    return this.#status;
-  }
+    if (
+      !this.#gridManager.isInRange(newPosition) ||
+      Position.equals(newPosition, otherPlayer.position)
+    ) {
+      return;
+    }
 
-  get googlePosition() {
-    return this.#google.position;
-  }
+    if (Position.equals(newPosition, this.#google.position)) {
+      this.#winner = player.id;
+      this.stop();
+      return;
+    }
 
-  get player1Position() {
-    return this.#player1.position;
-  }
-
-  get player2Position() {
-    return this.#player2.position;
-  }
-
-  get gridSize() {
-    return this.#settings.gridSettings;
-  }
-
-  set gridSize(value) {
-    this.#settings.gridSettings = value;
+    player.position = newPosition;
   }
 
   start() {
     this.#status = GameStatuses.IN_PROGRESS;
+    this.#winner = null;
     this.#makeGoogleJump();
-
-    this.#googleJumpInterval = setInterval(() => {
-      this.#makeGoogleJump();
-    }, this.#settings.googleSettings.jumpInterval);
+    this.#googleJumpInterval = setInterval(
+      () => this.#makeGoogleJump(),
+      this.#settings.google.jumpInterval
+    );
   }
 
   #makeGoogleJump() {
-    let newPosition;
-    do {
-      newPosition = new Position(
-        this.#numberUtility.getRandomInteger(
-          0,
-          this.#settings.gridSettings.columnsCount - 1
-        ),
-        this.#numberUtility.getRandomInteger(
-          0,
-          this.#settings.gridSettings.rowsCount - 1
-        )
-      );
-    } while (!this.#isCellFree(newPosition.x, newPosition.y));
-
+    const newPosition = this.#gridManager.getRandomFreePosition([
+      this.#player1.position,
+      this.#player2.position,
+    ]);
     this.#google.position = newPosition;
   }
 
   stop() {
     clearInterval(this.#googleJumpInterval);
     this.#status = GameStatuses.COMPLETED;
+  }
+
+  restart() {
+    this.stop();
+    this.#createUnits();
+    this.start();
+  }
+
+  get status() {
+    return this.#status;
+  }
+  get winner() {
+    return this.#winner;
+  }
+  get googlePosition() {
+    return this.#google.position;
+  }
+  get player1Position() {
+    return this.#player1.position;
+  }
+  get player2Position() {
+    return this.#player2.position;
+  }
+
+  set gridSize(value) {
+    this.#settings.grid = new GridSettings(
+      value.columnsCount,
+      value.rowsCount,
+      this.#samuraiNumberUtility
+    );
+    this.#gridManager = new GridManager(
+      this.#settings.grid,
+      this.#samuraiNumberUtility
+    );
+  }
+
+  set googleJumpInterval(value) {
+    this.#settings.google = new GoogleSettings(value);
   }
 }
