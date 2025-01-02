@@ -6,7 +6,9 @@ export class Controller {
     this.#model = game;
   }
   init() {
-    this.#view.render();
-    this.#model.render();
+    const dto = {
+      status: this.#model.status,
+    };
+    this.#view.render(dto);
   }
 }

@@ -1,6 +1,12 @@
 export class View {
-  render() {
+  render(dto) {
     const rootElement = document.getElementById("root");
-    rootElement.append("GAME WILL BE HERE");
+    rootElement.append("status: " + dto.status);
+
+    const button = document.createElement("button");
+    button.append("START GAME");
+    button.addEventListener("click", () => {
+    
+    });
   }
 }

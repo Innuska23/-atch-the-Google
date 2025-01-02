@@ -1,4 +1,5 @@
 import { Game } from "../js/core/game.js";
+import { SamuraiNumberUtility } from "../samurai-number-utility.js";
 import { Controller } from "./controller.js";
 import { View } from "./view.js";
 
