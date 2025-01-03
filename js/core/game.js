@@ -1,4 +1,5 @@
 import { GameStatuses } from "../../GAME_STATUSES.js";
+import { MoveDirection } from "../../MOVE_DIRECTIONS.js";
 import { SamuraiNumberUtility } from "../../samurai-number-utility.js";
 
 // Value Objects
@@ -177,6 +178,16 @@ export class Game {
     this.#createUnits();
   }
 
+  #observers = [];
+
+  subscribe(observer) {
+    this.#observers.push(observer);
+  }
+
+  #notify() {
+    this.#observers.forEach((o) => o());
+  }
+
   #createUnits() {
     const player1Position = this.#gridManager.getRandomFreePosition([]);
     const player2Position = this.#gridManager.getRandomFreePosition([
@@ -230,7 +241,8 @@ export class Game {
     }
 
     player.position = newPosition;
-  }
+    this.#notify();
+}
 
   start() {
     this.#status = GameStatuses.IN_PROGRESS;
@@ -240,6 +252,7 @@ export class Game {
       () => this.#makeGoogleJump(),
       this.#settings.google.jumpInterval
     );
+    this.#notify();
   }
 
   #makeGoogleJump() {
@@ -248,11 +261,13 @@ export class Game {
       this.#player2.position,
     ]);
     this.#google.position = newPosition;
+    this.#notify();
   }
 
   stop() {
     clearInterval(this.#googleJumpInterval);
     this.#status = GameStatuses.COMPLETED;
+    this.#notify();
   }
 
   restart() {
@@ -287,6 +302,14 @@ export class Game {
       this.#settings.grid,
       this.#samuraiNumberUtility
     );
+    this.#notify();
+  }
+
+  get gridSize() {
+    return {
+      rowsCount: this.#settings.grid.rowsCount,
+      columnsCount: this.#settings.grid.columnsCount,
+    };
   }
 
   set googleJumpInterval(value) {
