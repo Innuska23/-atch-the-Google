@@ -17,6 +17,10 @@ export class Controller {
     this.#view.onstart = () => {
       this.#model.start();
     };
+
+    this.#view.ongridsize = (size) => {
+      this.#model.gridSize = size;
+    };
   }
 
   init() {

@@ -1,6 +1,6 @@
-import { Game } from "./game.js";
 import { GameStatuses } from "../../GAME_STATUSES.js";
 import { SamuraiNumberUtility } from "../../samurai-number-utility.js";
+import { GameProxy } from "./game.js";
 
 describe("game", () => {
   let numberUtil;
@@ -9,7 +9,7 @@ describe("game", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     numberUtil = new SamuraiNumberUtility();
-    game = new Game();
+    game = new GameProxy();
   });
 
   it("should create the game and return the initial status", () => {
